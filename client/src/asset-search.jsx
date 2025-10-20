@@ -1,9 +1,8 @@
 import React from 'react';
 import { useState } from 'react';
-import { Form, Button } from 'react-bootstrap';
+import { Form, Button, Container } from 'react-bootstrap';
 import api from './services/api';
 import 'bootstrap/dist/css/bootstrap.min.css';
-
 
 export default function SearchAsset () {
 
@@ -12,6 +11,9 @@ export default function SearchAsset () {
   const [inputFields, setInputFields] = useState([ // estado inicial com um campo vazio e id 1
       { id: 1, value: '' }
     ]);
+
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');  
 
   const handleChange = (id, event) => {
     const newInputField = inputFields.map(field => {
@@ -35,8 +37,13 @@ export default function SearchAsset () {
     assets.push(inputFields.map(field => field.value)); // extrair os valores dos campos
     
     await api.post('/submit', { //to do: error handling
-      assetArray: assets
+      assetArray: assets,
+      startDate,
+      endDate
     })
+
+    //console.log('Data inicio:', startDate);
+    //console.log('Data fim:', endDate);
   };
 
   return (  // formatação somente para testes iniciais, trabalhar na estilização depois
@@ -56,12 +63,27 @@ export default function SearchAsset () {
           </div>
         ))}
 
-        <div className="button-group">
+        <Form.Group controlId='formDates'>
+            <Form.Label>Data de Início:</Form.Label>
+              <Form.Control 
+                type='date' 
+                value={startDate} 
+                onChange={e => setStartDate(e.target.value)} 
+              />
+            <Form.Label>Data de Fim:</Form.Label>
+              <Form.Control 
+                type='date' 
+                value={endDate} 
+                onChange={e => setEndDate(e.target.value)} 
+              />
+        </Form.Group>
+
+        <Form.Group controlId='formButtons'>
           <Button type="button" variant='secondary' className="add-button" onClick={handleAddField}>
             +
           </Button>
           <Button type="submit" variant='primary' className="submit-button">Pesquisar!</Button>
-        </div>
+        </Form.Group>
       </Form>
     </div>
     </>

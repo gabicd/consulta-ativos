@@ -9,26 +9,46 @@ app.use(cors());
 
 const PORT = 3000
 const API_KEY =  process.env.MY_API_KEY
-const BASE_URL = "https://www.alphavantage.co/query?function="
+const BASE_URL = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol="
 
+// rota para receber os dados do frontend e buscar na API externa
 app.post('/submit', async (req, res) => {
-    const { assetArray } = req.body;
+    const { assetArray, startDate, endDate } = req.body;
     const ativos = assetArray.flat();
-    console.log('Received body:', ativos);
-    
-    const data = []
 
-    try {   // operação não otimizada, teste de chamada para API externa com múltiplos ativos
-            for (let ativo of ativos){        
-            const result = await axios.get(`${BASE_URL}TIME_SERIES_DAILY&symbol=${ativo}.SA&apikey=${API_KEY}`);
-            console.log('External API response data:', result.data);
-            data.push({ativo: ativo, info: result.data})        
-    }
-        res.json(data);
+    //console.log('Received body:', ativos);
+    //console.log('Start Date:', startDate);
+    //console.log('End Date:', endDate);
+    
+
+    try {   // otimização com Promise.all para múltiplas requisições
+            const promises = ativos.map(async ativo => {
+            const url = `${BASE_URL}${ativo}.SA&apikey=${API_KEY}`; //por padrao, retorna os ultimos 100 data points
+            const response = await axios.get(url)
+       
+            // Filtrar os dados com base nas datas fornecidas
+            const rawData = response.data['Time Series (Daily)'];
+            const filteredData = [];
+            
+            for (let date in rawData) {
+                if (date >= startDate && date <= endDate) {
+                    filteredData.push({ 
+                        date: date, 
+                        closeValue: rawData[date]['4. close'] 
+                    });
+                }
+            }
+
+            return { asset: ativo, data: filteredData };
+        });
+
+        const results = await Promise.all(promises);
+        res.json({ data: results });
+        //console.log('Fetched data:', results);
     } catch (error) {
         console.error('Error fetching data from external API:', error);
         res.status(500).json({ error: 'Failed to fetch data from external API' });
-    }
+        }
     });  
 
 
