@@ -1,19 +1,22 @@
 import React from 'react';
 import { useState } from 'react';
 import { Form, Button, Container } from 'react-bootstrap';
+import { Line } from 'react-chartjs-2';
+import { Chart as ChartJS}  from 'chart.js/auto';
 import api from './services/api';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 export default function SearchAsset () {
-
-  const assets = []
 
   const [inputFields, setInputFields] = useState([ // estado inicial com um campo vazio e id 1
       { id: 1, value: '' }
     ]);
 
   const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');  
+  const [endDate, setEndDate] = useState('');
+  const [data, setData] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
 
   const handleChange = (id, event) => {
     const newInputField = inputFields.map(field => {
@@ -34,13 +37,19 @@ export default function SearchAsset () {
   
   const handleSubmit = async (event) => {
     event.preventDefault(); // prevenir comportamento padrão do form (reload da página)
-    assets.push(inputFields.map(field => field.value)); // extrair os valores dos campos
-    
-    await api.post('/submit', { //to do: error handling
+    const assets = (inputFields.map(field => field.value)); // extrair os valores dos campos
+    try {    
+      const response = await api.post('/submit', { 
       assetArray: assets,
       startDate,
       endDate
     })
+    console.log('Response from server:', response.data.data);
+    setData(response.data.data);
+    setLoaded(true);
+    } catch (error) {
+      console.error('Error submitting data to server:', error);
+    }
 
     //console.log('Data inicio:', startDate);
     //console.log('Data fim:', endDate);
@@ -85,6 +94,31 @@ export default function SearchAsset () {
           <Button type="submit" variant='primary' className="submit-button">Pesquisar!</Button>
         </Form.Group>
       </Form>
+
+      <Container> {/*teste de visualizacao inicial em charts, ainda nao refinado para um chart so com linhas diferentes*/ }
+        {loaded && data && (
+          data.map((assetData) => {
+            const chartData = {
+              labels: assetData.data.map(entry => entry.date).reverse(),
+              datasets: [
+                {
+                  label: `${assetData.asset} Closing Prices`,
+                  data: assetData.data.map(entry => entry.closeValue).reverse(),
+                  fill: false,
+                  borderColor: 'rgba(75,192,192,1)',
+                  tension: 0.1
+                }
+              ]
+            };
+            return (
+              <div key={assetData.asset} className="chart-container">
+                <h3>{assetData.asset}</h3>
+                <Line data={chartData} />
+              </div>
+            );
+          })
+        )}
+    </Container> 
     </div>
     </>
   );

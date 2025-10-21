@@ -44,7 +44,7 @@ app.post('/submit', async (req, res) => {
 
         const results = await Promise.all(promises);
         res.json({ data: results });
-        //console.log('Fetched data:', results);
+       console.log('Fetched data:', results);
     } catch (error) {
         console.error('Error fetching data from external API:', error);
         res.status(500).json({ error: 'Failed to fetch data from external API' });
