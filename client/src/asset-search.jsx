@@ -42,7 +42,7 @@ export default function SearchAsset () {
   
   const handleSubmit = async (event) => {
     event.preventDefault(); // prevenir comportamento padrão do form (reload da página)
-    const assets = (inputFields.map(field => {field.value})); // extrair os valores dos campos
+    const assets = (inputFields.map(field => field.value)); // extrair os valores dos campos
     try {
       setSearching(true)    
       const response = await api.post('/submit', { 
@@ -68,11 +68,11 @@ useEffect(() => {
       const labels = data[0].data.map(entry => {
         const [ano, mes, dia] = entry.date.split('-')
         return `${dia}/${mes}/${ano}`        
-      }).reverse(); //garantir ordem cronologica
+      }); //garantir ordem cronologica
 
       const datasets = data.map((assetData, index) => ({
         label: `${assetData.asset} Closing Prices`, 
-        data: assetData.data.map(entry => entry.closeValue).reverse(), //garantir ordem cronologica
+        data: assetData.data.map(entry => entry.closeValue), //garantir ordem cronologica
         fill: false,
         borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`, //garantir cores diferentes para as linhas
       }));
