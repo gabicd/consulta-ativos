@@ -1,5 +1,5 @@
 import React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Form, Button, Container } from 'react-bootstrap';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS}  from 'chart.js/auto';
@@ -16,6 +16,7 @@ export default function SearchAsset () {
   const [endDate, setEndDate] = useState('');
   const [data, setData] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  const [chartData, setChartData] = useState(null)
 
 
   const handleChange = (id, event) => {
@@ -55,10 +56,32 @@ export default function SearchAsset () {
     //console.log('Data fim:', endDate);
   };
 
+useEffect(() => {
+    if (loaded && data && data.length > 0) {
+
+      const labels = data[0].data.map(entry => {
+        const [ano, mes, dia] = entry.date.split('-')
+        return `${dia}/${mes}/${ano}`        
+      }).reverse(); //garantir ordem cronologica
+
+      const datasets = data.map((assetData, index) => ({
+        label: `${assetData.asset} Closing Prices`, 
+        data: assetData.data.map(entry => entry.closeValue).reverse(), //garantir ordem cronologica
+        fill: false,
+        borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`, //garantir cores diferentes para as linhas
+      }));
+
+      setChartData({
+        labels: labels,
+        datasets: datasets
+      });
+    }
+  }, [data, loaded]);
+
   return (  // formatação somente para testes iniciais, trabalhar na estilização depois
     <>
     <div className="form-container">
-      <h1>Busca de Assets</h1>
+      <h1>Busca de Ativos B3</h1>
       <Form onSubmit={handleSubmit}>
         {inputFields.map(field => (
           <div className="input-group" key={field.id}>
@@ -66,20 +89,23 @@ export default function SearchAsset () {
               type="text"
               value={field.value}
               onChange={event => handleChange(field.id, event)}
-              placeholder="Enter a value"
+              placeholder="Símbolo do ativo"
               required
             />
           </div>
         ))}
+          <Button type="button" variant='secondary' className="add-button" onClick={handleAddField}>
+            +
+          </Button>
 
         <Form.Group controlId='formDates'>
-            <Form.Label>Data de Início:</Form.Label>
+            <Form.Label>Data de início da consulta:</Form.Label>
               <Form.Control 
                 type='date' 
                 value={startDate} 
                 onChange={e => setStartDate(e.target.value)} 
               />
-            <Form.Label>Data de Fim:</Form.Label>
+            <Form.Label>Data de fim da consulta:</Form.Label>
               <Form.Control 
                 type='date' 
                 value={endDate} 
@@ -88,35 +114,17 @@ export default function SearchAsset () {
         </Form.Group>
 
         <Form.Group controlId='formButtons'>
-          <Button type="button" variant='secondary' className="add-button" onClick={handleAddField}>
-            +
-          </Button>
+
           <Button type="submit" variant='primary' className="submit-button">Pesquisar!</Button>
         </Form.Group>
       </Form>
 
-      <Container> {/*teste de visualizacao inicial em charts, ainda nao refinado para um chart so com linhas diferentes*/ }
-        {loaded && data && (
-          data.map((assetData) => {
-            const chartData = {
-              labels: assetData.data.map(entry => entry.date).reverse(),
-              datasets: [
-                {
-                  label: `${assetData.asset} Closing Prices`,
-                  data: assetData.data.map(entry => entry.closeValue).reverse(),
-                  fill: false,
-                  borderColor: 'rgba(75,192,192,1)',
-                  tension: 0.1
-                }
-              ]
-            };
-            return (
-              <div key={assetData.asset} className="chart-container">
-                <h3>{assetData.asset}</h3>
-                <Line data={chartData} />
-              </div>
-            );
-          })
+      <Container> {/*dados unificados em um grafico*/ }
+        {loaded && chartData && (
+          <>
+          <h3>{data.map(assetData => assetData.asset).join(', ')}</h3>
+          <Line data={chartData}></Line>
+          </>
         )}
     </Container> 
     </div>
