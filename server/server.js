@@ -4,7 +4,6 @@ import fs from 'fs/promises';
 import path from 'path'
 import YahooFinance from "yahoo-finance2";
 import 'dotenv/config'
-import { autoc } from 'yahoo-finance2/modules';
 
 const app = express();  
 app.use(express.json());
@@ -24,16 +23,25 @@ app.post('/submit', async (req, res) => {
     endDateObj.setUTCDate(endDateObj.getUTCDate() + 1) //period2 nao inclui a data final, entao transforma em objeto para adicionar um dia na busca
     
     try {   // otimização com Promise.all para múltiplas requisições
+        const finalData = []
         const saveData = {}
         const searchDates = getIntervalDates(startDate, endDate)
         const promises = ativos.map(async ativo => {
-        const missingInfo =  await findMissingDates(searchDates, ativo)
-        console.log(missingInfo)
-        const symbol = `${ativo}.SA`    //adicionar o .SA para especificar que a busca é de um ativo na bolsa brasileira
+        const responseData = []
+        const {foundDates, missingDates} =  await findMissingDates(searchDates, ativo)
+        const newStart = missingDates[0]
+        const newEnd = new Date(missingDates[missingDates.length - 1])
+        newEnd.setUTCDate(newEnd.getUTCDate() + 1)    
+        //console.log(newStart, newEnd)
 
+        searchCachedData(foundDates, ativo, responseData)
+
+
+        //busca na API Externa
+        const symbol = `${ativo}.SA`    //adicionar o .SA para especificar que a busca é de um ativo na bolsa brasileira
             const response = await yahooFinance.chart(symbol, {
-                period1: startDate,
-                period2: endDateObj
+                period1: newStart,
+                period2: newEnd
             })
        
             const cotacoes = response.quotes
@@ -44,11 +52,13 @@ app.post('/submit', async (req, res) => {
             closeValue: cotacao.close, 
         }));
 
-        saveData[ativo] = filteredData
+        responseData.push(...filteredData)
 
+        responseData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        //console.log(responseData)
         return {
                 asset: ativo, 
-                data: filteredData,
+                data: responseData,
         } 
     }
 );
@@ -84,21 +94,46 @@ async function findMissingDates(searchDates, ativo) {
         const jsonData = JSON.parse(fileContent)
 
         const assetData = jsonData[ativo] || []
-
         const existingDates = new Set(assetData.map(record => record.date))
 
+        const foundDates = []
         const missingDates = []
 
         for (const date of searchDates) {
-            if (!(existingDates.has(date))) {
+            if (existingDates.has(date)) {
+                foundDates.push(date)
+            } else {
                 missingDates.push(date)
             }
         }
 
-        return missingDates
+        return {
+            foundDates,
+            missingDates
+        }
     } catch (error) {
         console.error(error)
     }
+}
+
+async function searchCachedData(foundDates, ativo, responseData){
+    try {
+        const fileContent = await fs.readFile(dataFilePath, 'utf8')
+        const jsonData = JSON.parse(fileContent)
+
+        const assetData = jsonData[ativo] || []
+
+        for (const date of foundDates) {
+            const matchingObject = assetData.find(record => record.date === date);
+            if (matchingObject) {
+                responseData.push(matchingObject)
+            } 
+        }
+
+    } catch (error) {
+        console.error(error)
+    }
+    //console.log(responseData);   
 }
 
 app.listen(PORT, () => {
