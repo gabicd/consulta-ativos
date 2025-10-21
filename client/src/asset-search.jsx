@@ -1,13 +1,12 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
-import { Form, Button, Container } from 'react-bootstrap';
+import { Form, Button, Container, Spinner } from 'react-bootstrap';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS}  from 'chart.js/auto';
 import api from './services/api';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 export default function SearchAsset () {
-
   const [inputFields, setInputFields] = useState([ // estado inicial com um campo vazio e id 1
       { id: 1, value: '' }
     ]);
@@ -15,9 +14,9 @@ export default function SearchAsset () {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [data, setData] = useState([]);
+  const [searching, setSearching] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [chartData, setChartData] = useState(null)
-
 
   const handleChange = (id, event) => {
     const newInputField = inputFields.map(field => {
@@ -35,11 +34,17 @@ export default function SearchAsset () {
     const newField = { id: Date.now(), value: '' }; 
     setInputFields([...inputFields, newField]);
   };
+
+  const handleDeleteField = (id) => {   //função para deletar campo de pesquisa
+    const updatedInputFields = inputFields.filter(field => field.id != id);
+    setInputFields(updatedInputFields);
+  }
   
   const handleSubmit = async (event) => {
     event.preventDefault(); // prevenir comportamento padrão do form (reload da página)
-    const assets = (inputFields.map(field => field.value)); // extrair os valores dos campos
-    try {    
+    const assets = (inputFields.map(field => {field.value})); // extrair os valores dos campos
+    try {
+      setSearching(true)    
       const response = await api.post('/submit', { 
       assetArray: assets,
       startDate,
@@ -50,6 +55,8 @@ export default function SearchAsset () {
     setLoaded(true);
     } catch (error) {
       console.error('Error submitting data to server:', error);
+    } finally {
+      setSearching(false)
     }
 
     //console.log('Data inicio:', startDate);
@@ -58,7 +65,6 @@ export default function SearchAsset () {
 
 useEffect(() => {
     if (loaded && data && data.length > 0) {
-
       const labels = data[0].data.map(entry => {
         const [ano, mes, dia] = entry.date.split('-')
         return `${dia}/${mes}/${ano}`        
@@ -92,6 +98,9 @@ useEffect(() => {
               placeholder="Símbolo do ativo"
               required
             />
+            <Button variant='secondary' id={field.id} onClick={() => handleDeleteField(field.id)}>
+              -
+            </Button>
           </div>
         ))}
           <Button type="button" variant='secondary' className="add-button" onClick={handleAddField}>
@@ -114,13 +123,18 @@ useEffect(() => {
         </Form.Group>
 
         <Form.Group controlId='formButtons'>
-
           <Button type="submit" variant='primary' className="submit-button">Pesquisar!</Button>
         </Form.Group>
       </Form>
+        
+        {searching && ( //animação de loading para quando uma busca esta sendo feita
+          <Container className='mt-4 centered-container'> 
+            <Spinner animation="border" variant="primary"/>
+          </Container>  
+        )}
 
       <Container> {/*dados unificados em um grafico*/ }
-        {loaded && chartData && (
+        {loaded && chartData && !searching && (
           <>
           <h3>{data.map(assetData => assetData.asset).join(', ')}</h3>
           <Line data={chartData}></Line>
