@@ -50,7 +50,7 @@ export default function SearchAsset () {
       startDate,
       endDate
     })
-    console.log('Response from server:', response.data.data);
+    //console.log('Response from server:', response.data.data);
     setData(response.data.data);
     setLoaded(true);
     } catch (error) {
@@ -68,11 +68,11 @@ useEffect(() => {
       const labels = data[0].data.map(entry => {
         const [ano, mes, dia] = entry.date.split('-')
         return `${dia}/${mes}/${ano}`        
-      }); //garantir ordem cronologica
+      }); 
 
       const datasets = data.map((assetData, index) => ({
         label: `${assetData.asset} Closing Prices`, 
-        data: assetData.data.map(entry => entry.closeValue), //garantir ordem cronologica
+        data: assetData.data.map(entry => entry.closeValue), 
         fill: false,
         borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`, //garantir cores diferentes para as linhas
       }));

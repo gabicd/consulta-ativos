@@ -8,6 +8,8 @@ app.use(express.json());
 app.use(cors());
 const yahooFinance = new YahooFinance(); //api externa de cotação
 
+
+const TTL = 120 
 const PORT = 3000
 
 // rota para receber os dados do frontend e buscar na API externa
@@ -15,18 +17,18 @@ app.post('/submit', async (req, res) => {
     const { assetArray, startDate, endDate } = req.body;
     const ativos = assetArray.flat();
 
-    //console.log('Received body:', ativos);
-    //console.log('Start Date:', startDate);
-    //console.log('End Date:', endDate);
+    const endDateObj = new Date(endDate)
+    endDateObj.setUTCDate(endDateObj.getUTCDate() + 1) //period2 nao inclui a data final, entao transforma em objeto para adicionar um dia na busca
     
-
     try {   // otimização com Promise.all para múltiplas requisições
             const promises = ativos.map(async ativo => {
-            const symbol = `${ativo}.SA`    //adicionar o .SA para especificar que a busca é de um ativo na bolsa brasileira
+            
+
+           const symbol = `${ativo}.SA`    //adicionar o .SA para especificar que a busca é de um ativo na bolsa brasileira
 
             const response = await yahooFinance.chart(symbol, {
                 period1: startDate,
-                period2: endDate
+                period2: endDateObj
             })
        
             const cotacoes = response.quotes
@@ -39,12 +41,11 @@ app.post('/submit', async (req, res) => {
         return {
                 asset: ativo, 
                 data: filteredData,
-        }
+        } 
     });
-
         const results = await Promise.all(promises);
         res.json({ data: results });
-        //console.log('Fetched data:', results);
+        console.log('Fetched data:', results);
     } catch (error) {
         console.error('Error fetching data from external API:', error);
         res.status(500).json({ error: 'Failed to fetch data from external API' });
