@@ -8,63 +8,72 @@ import 'dotenv/config'
 const app = express();  
 app.use(express.json());
 app.use(cors());
-const dataFilePath = './persistentData.json';
+const dataFilePath = path.join(process.cwd(), 'persistentData.json');
 const yahooFinance = new YahooFinance(); //api externa de cotação
 
 const PORT = 3000
 
 const isWeekend = date => date.getUTCDay() % 6 === 0;
 
-// rota para receber os dados do frontend e buscar na API externa
 app.post('/submit', async (req, res) => {
     const { assetArray, startDate, endDate } = req.body;
     const ativos = assetArray.flat();
-    const endDateObj = new Date(endDate)
-    endDateObj.setUTCDate(endDateObj.getUTCDate() + 1) //period2 nao inclui a data final, entao transforma em objeto para adicionar um dia na busca
+    const newData = []
+    const jsonData = await loadData(dataFilePath)
+    //console.log(jsonData)
     
-    try {   // otimização com Promise.all para múltiplas requisições
-        const finalData = []
-        const saveData = {}
+    try {   
         const searchDates = getIntervalDates(startDate, endDate)
         const promises = ativos.map(async ativo => {
-        const responseData = []
-        const {foundDates, missingDates} =  await findMissingDates(searchDates, ativo)
-        const newStart = missingDates[0]
-        const newEnd = new Date(missingDates[missingDates.length - 1])
-        newEnd.setUTCDate(newEnd.getUTCDate() + 1)    
-        //console.log(newStart, newEnd)
+            const responseData = []
+            const {foundDates, missingDates} =  findMissingDates(jsonData, searchDates, ativo)
+            const newStart = missingDates[0]
+            const newEnd = new Date(missingDates[missingDates.length - 1])
+            newEnd.setUTCDate(newEnd.getUTCDate() + 1)    
+            //console.log(newStart, newEnd)
+    
+            searchCachedData(jsonData, foundDates, ativo, responseData)
+            //console.log(missingDates.length)
+            if (missingDates.length > 0){            
+                const symbol = `${ativo}.SA`   
+                const response = await yahooFinance.chart(symbol, {
+                    period1: newStart,
+                    period2: newEnd
+                })
+                const cotacoes = response.quotes
+                //console.log(cotacoes)
+                const filteredData = cotacoes.map((cotacao) => ({
+                date: cotacao.date.toISOString().split('T')[0], 
+                closeValue: cotacao.close, 
+            }));
 
-        searchCachedData(foundDates, ativo, responseData)
+            responseData.push(...filteredData)
+            newData.push({asset: ativo, data: filteredData})
 
-
-        //busca na API Externa
-        const symbol = `${ativo}.SA`    //adicionar o .SA para especificar que a busca é de um ativo na bolsa brasileira
-            const response = await yahooFinance.chart(symbol, {
-                period1: newStart,
-                period2: newEnd
-            })
-       
-            const cotacoes = response.quotes
-            //console.log(cotacoes)
-
-            const filteredData = cotacoes.map((cotacao) => ({
-            date: cotacao.date.toISOString().split('T')[0], //formato original é um Date object
-            closeValue: cotacao.close, 
-        }));
-
-        responseData.push(...filteredData)
-
-        responseData.sort((a, b) => new Date(a.date) - new Date(b.date));
-        //console.log(responseData)
+            responseData.sort((a, b) => new Date(a.date) - new Date(b.date));
+            //console.log(responseData)
+        }
         return {
-                asset: ativo, 
-                data: responseData,
-        } 
+            asset: ativo, 
+            data: responseData,
+        }
     }
 );
-        const results = await Promise.all(promises);
-        //await fs.writeFile('./persistentData.json', JSON.stringify(saveData, null, 2))
-        
+        const results = await Promise.all(promises);   
+        //console.log(newData)
+        if (newData && newData.length > 0){
+            //console.log('Rodando funcao')        
+            newData.forEach(result => {
+            const { asset, data } = result;
+            if (data && data.length > 0) {
+                const cachedData = jsonData[asset] || [];
+                const mergedData = cachedData.concat(data)
+                jsonData[asset] = mergedData
+            } 
+        });
+            await fs.writeFile(dataFilePath, JSON.stringify(jsonData, null, 2));
+        }
+
         res.json({ data: results });
         //console.log('Fetched data:', results);
     } catch (error) {
@@ -88,16 +97,13 @@ function getIntervalDates(startDate, endDate) {
 
 }
 
-async function findMissingDates(searchDates, ativo) {
-    try {
-        const fileContent = await fs.readFile(dataFilePath, 'utf8')
-        const jsonData = JSON.parse(fileContent)
-
-        const assetData = jsonData[ativo] || []
-        const existingDates = new Set(assetData.map(record => record.date))
-
+function findMissingDates(jsonData, searchDates, ativo) {
         const foundDates = []
         const missingDates = []
+    
+    if(jsonData[ativo]){        
+        const assetData = jsonData[ativo]
+        const existingDates = new Set(assetData.map(record => record.date))
 
         for (const date of searchDates) {
             if (existingDates.has(date)) {
@@ -106,34 +112,50 @@ async function findMissingDates(searchDates, ativo) {
                 missingDates.push(date)
             }
         }
-
+        //console.log(foundDates, missingDates)
+    } else {
+        missingDates.push(...searchDates)
+    }
         return {
             foundDates,
             missingDates
         }
-    } catch (error) {
-        console.error(error)
-    }
 }
 
-async function searchCachedData(foundDates, ativo, responseData){
-    try {
-        const fileContent = await fs.readFile(dataFilePath, 'utf8')
-        const jsonData = JSON.parse(fileContent)
-
-        const assetData = jsonData[ativo] || []
-
+function searchCachedData(jsonData, foundDates, ativo, responseData){
+    if(jsonData[ativo]){        
+        const assetData = jsonData[ativo]
         for (const date of foundDates) {
             const matchingObject = assetData.find(record => record.date === date);
             if (matchingObject) {
                 responseData.push(matchingObject)
             } 
-        }
-
-    } catch (error) {
-        console.error(error)
-    }
+        }}
     //console.log(responseData);   
+}
+
+async function loadData(dataPath){
+    let jsonData = {}
+    try {
+        const fileContent = await fs.readFile(dataPath, 'utf8')
+        if(fileContent === '') {
+            //console.log('Empty data')
+            jsonData = {}
+        } else {
+            jsonData = JSON.parse(fileContent)
+        }
+        //console.log('Succesfully loaded')
+    } catch (error) {
+        if(error.code === 'ENOENT') {
+            console.log('File doesnt exist, creating now')
+            jsonData = {}
+        } else {
+            console.log(error)
+            process.exit(1);
+        }
+    } 
+        
+    return jsonData
 }
 
 app.listen(PORT, () => {
