@@ -2,6 +2,7 @@ body{
     height: 100vh;
     width: 100%; 
     margin: 0;
+    font-family: 'Noto Sans';
 }
 
 .deleteButton {
@@ -16,7 +17,6 @@ body{
     color: white;
     font-weight: 600;
     border: none;
-    font-family: 'Noto Sans';
     transition: 0.2s;
 }
 
@@ -25,16 +25,15 @@ body{
 }
 
 .tituloSite {
-    font-family: 'Noto Sans';
+    transition: transform 0.3s ease;
 }
 
-.data {
-    font-family: 'Noto Sans' !important;
+.tituloSite:hover {
+    transform: translateY(-5px);
 }
 
 .inputField {
     background-color: #f6fdff !important;
-    font-family: 'Noto Sans' !important;
 }
 
 .deleteButton:hover{
@@ -44,7 +43,6 @@ body{
 .submitButton {
     background-color: #0077b3;
     font-weight: 600;
-    font-family: 'Noto Sans';
     border: none;
     transition: 0.2s;
 }
@@ -57,6 +55,73 @@ body{
 .addButton:hover{
     background-color: #967AA1;
     filter: brightness(1.1); 
+}
+
+.infoCard {
+    aspect-ratio: 16 / 9;  
+    width: 18rem;
+    flex-basis: 18rem;
+
+    flex-grow: 0;
+    flex-shrink: 0;
+
+    max-width: 100%;
+
+    transition: 0.3s ease;
+    display: flex;
+    
+    overflow: hidden;
+}
+
+.infoCard .card-body {
+  flex-grow: 1; 
+  display: flex;
+  flex-direction: row; 
+  padding: 0; 
+  height: 100%; 
+  min-width: 0;
+}
+
+.infoCard .card-img {
+  width: 50%; 
+  height: 100%; 
+  object-fit: contain; 
+  flex-shrink: 0;
+  padding: 0.5rem;
+  box-sizing: border-box; 
+  margin-bottom: 0;
+}
+
+.infoWrapper {
+  flex-grow: 1; 
+  display: flex;
+  flex-direction: column; 
+  min-width: 0; 
+  padding: 0.75rem;
+  height: 100%;
+  box-sizing: border-box; 
+}
+
+.cardTitle {
+    font-family: 'Noto Sans';
+    flex-shrink: 0; 
+    white-space: nowrap; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cardText {
+    font-family: 'Noto Sans';
+    flex-grow: 1; 
+    overflow-y: auto; 
+    white-space: normal; 
+    margin-top: 0.25rem;
+    min-height: 0;
+}
+
+.infoCard:hover{
+    transform: translateY(-5px);
+    box-shadow: 0 0 10px rgb(182, 182, 182);
 }
 
 .item-enter {

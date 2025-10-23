@@ -1,25 +1,51 @@
 import React from 'react';
-import { useState, useEffect, createRef } from 'react';
-import { Form, Button, Container, Spinner, Modal, Stack, } from 'react-bootstrap';
+import { useState, useEffect, useRef, createRef } from 'react';
+import { Form, Button, Container, Spinner, Stack } from 'react-bootstrap';
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS}  from 'chart.js/auto';
+import InfoModal from './components/infoModal.jsx';
+import InfoCard from './components/infoCard.jsx';
+import zoomPlugin from 'chartjs-plugin-zoom'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+} from "chart.js";
 import { TransitionGroup, CSSTransition } from 'react-transition-group';
 import api from './services/api';
 import logo from './assets/inoa-logo.png';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './asset-search.css'
 
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  zoomPlugin
+);
+
 export default function SearchAsset () {
   const [inputFields, setInputFields] = useState([{ id: 1, value: '', ref: createRef(null) }]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [data, setData] = useState([]);
+  const [error, setError] = useState(null)
   const [searching, setSearching] = useState(null);
   const [loaded, setLoaded] = useState(false);
-  const [show, setShow] = useState(false)
-  const [showError, setShowError] = useState(false)
+  const [modalInfo, setModalInfo] = useState(null)
   const [chartData, setChartData] = useState(null)
-  
+
+  const chartRef = useRef(null)
+  const today = new Date()
+
   const handleChange = (id, event) => {
     const newInputField = inputFields.map(field => {
       if (id === field.id) {
@@ -38,15 +64,34 @@ export default function SearchAsset () {
 
   const handleDeleteField = (id) => {  
     if (inputFields.length == 1){
-      setShow(true) 
+      setModalInfo({
+        title: 'Ação inválida!',
+        body: 'Você precisa de pelo menos um ativo para realizar a busca',
+        variant: 'primary'
+      }) 
       return
     } 
     const updatedInputFields = inputFields.filter(field => field.id != id);
     setInputFields(updatedInputFields);
   }
+
+  const handleResetZoom = () => {
+    if(chartRef.current) {
+      chartRef.current.resetZoom()
+    }
+  }
   
   const handleSubmit = async (event) => {
     event.preventDefault(); 
+    if (new Date(endDate) - new Date (startDate) <= 0 || new Date(endDate) > today){
+        setModalInfo({
+          title: 'Período inválido',
+          body: 'Sua data de início precisa ser anterior à data de fim, e a data de fim não pode ser futura',
+        })
+        
+        return
+    }
+
     const assets = (inputFields.map(field => ((field.value).toUpperCase()).trim())); 
       try {
         setSearching(true)    
@@ -55,17 +100,22 @@ export default function SearchAsset () {
         startDate,
         endDate
       })
-      //console.log('Response from server:', response.data.data);
+      
       setData(response.data.data);
       setLoaded(true);
+      setError(null)
       } catch (e) {
         console.error('Error submitting data to server:', e);
-        setShowError(true)
+        setError(e)
+          setModalInfo({
+            title: `Ocorreu um erro: ${e.message}`,
+            body: 'Revise o que foi inserido e tente novamente.',
+            variant: 'danger'
+        }) 
       } finally {
         setSearching(false)
       }
-    //console.log('Data inicio:', startDate);
-    //console.log('Data fim:', endDate);
+    
   };
 
 useEffect(() => {
@@ -76,7 +126,7 @@ useEffect(() => {
       }); 
 
       const datasets = data.map((assetData, index) => ({
-        label: `${assetData.asset} Preço de Fechamento`, 
+        label: `${assetData.asset}`, 
         data: assetData.data.map(entry => entry.closeValue), 
         fill: false,
         borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`, 
@@ -89,6 +139,34 @@ useEffect(() => {
     }
   }, [data, loaded]);
 
+
+  const configs = {
+    responsive: true,
+    plugins: {
+      title:{text: 'Preço de Fechamento Diário', display: true},
+      zoom: { 
+        pan: { 
+          enabled: true,
+          mode: 'xy', 
+          speed: 0.1
+        },
+        zoom: { 
+          wheel: {
+            enabled: true,
+            speed: 0.1 
+          },
+          drag: {
+            enabled: false,
+            maintainAspectRatio: true
+          },
+          mode: 'xy',
+
+        }
+      } 
+ 
+    }
+  }
+
   return ( 
     <>
        <Container className='p-3 shadow-sm' fluid style={{backgroundColor:'#005984'}}>
@@ -99,7 +177,9 @@ useEffect(() => {
                 width="48px"
                 height="48px"
             />
-            <p className='mb-0 h3 text-white tituloSite'>Busca de Ativos B3</p>
+            <a className='text-decoration-none mb-0 h3 text-white tituloSite' href="https://www.b3.com.br/pt_br/para-voce">
+              Busca de Ativos B3
+            </a>
           </Stack>
        </Container>
       
@@ -168,44 +248,33 @@ useEffect(() => {
         </Form>
       </Container>
 
-      <Modal show={show} onHide={() => setShow(false)}>
-        <Modal.Header>
-          <Modal.Title>Ação inválida!</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>Você precisa de pelo menos um ativo para realizar a busca.</Modal.Body>
-        <Modal.Footer>
-          <Button variant="primary" onClick={() => setShow(false)}>
-            Okay
-          </Button>
-        </Modal.Footer>      
-      </Modal>
+      <InfoModal 
+        show={modalInfo !== null}
+        onHide={() => setModalInfo(null)}
+        title={modalInfo?.title}
+        body={modalInfo?.body}
+        buttonVariant={modalInfo?.variant}
+      />
 
-
-      <Modal show={showError} onHide={() => setShowError(false)}>
-        <Modal.Header>
-          <Modal.Title>Ocorreu um erro.</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>Revise o que foi escrito e tente novamente</Modal.Body>
-        <Modal.Footer>
-          <Button variant="danger" onClick={() => setShowError(false)}>
-            Okay
-          </Button>
-        </Modal.Footer>      
-      </Modal>
-        
         {searching && ( 
           <Container className='d-flex justify-content-center align-items-center p-5'> 
-            <Spinner animation="border" variant="primary"/>
+            <Spinner animation="border" variant="info"/>
           </Container>  
         )}
 
-      
-        {loaded && chartData && !searching && (
+        {loaded && chartData && !searching && !error &&(
         <>
-        <Container className='border border-secondary-subtle rounded'> 
-            <p className='h3 p-2 pt-3'>{data.map(assetData => assetData.asset).join(', ')}</p>
-            <Line data={chartData}></Line>
+        <Container className='d-flex flex-column border border-secondary-subtle rounded align-items-center'> 
+              <Button className='mt-3 ms-auto deleteButton' onClick={handleResetZoom}>Zoom Inicial</Button>
+            <Line 
+              data={chartData}
+              options={configs}
+              ref={chartRef}
+            />
          </Container>
+            <InfoCard
+              data={data}
+            />
          <br/>
         </>
         )}
