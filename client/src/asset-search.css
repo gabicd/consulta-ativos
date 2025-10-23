@@ -1,0 +1,81 @@
+body{
+    height: 100vh;
+    width: 100%; 
+    margin: 0;
+}
+
+.deleteButton {
+    background-color: #e9e9e9;
+    color: rgb(139, 139, 139);
+    font-weight: bold;
+    border: none;
+}
+
+.addButton {
+    background-color: #967AA1;
+    color: white;
+    font-weight: 600;
+    border: none;
+    font-family: 'Noto Sans';
+    transition: 0.2s;
+}
+
+.chartContainer {
+    background-color: rgb(139, 139, 139);
+}
+
+.tituloSite {
+    font-family: 'Noto Sans';
+}
+
+.data {
+    font-family: 'Noto Sans' !important;
+}
+
+.inputField {
+    background-color: #f6fdff !important;
+    font-family: 'Noto Sans' !important;
+}
+
+.deleteButton:hover{
+    background-color: #0083c5;
+}
+
+.submitButton {
+    background-color: #0077b3;
+    font-weight: 600;
+    font-family: 'Noto Sans';
+    border: none;
+    transition: 0.2s;
+}
+
+.submitButton:hover {
+    background-color: #0077b3;
+    filter: brightness(1.1);
+}
+
+.addButton:hover{
+    background-color: #967AA1;
+    filter: brightness(1.1); 
+}
+
+.item-enter {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.item-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 300ms ease-in-out;
+}
+
+.item-exit {
+  opacity: 1;
+}
+
+.item-exit-active {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: all 300ms ease-in-out;
+}
