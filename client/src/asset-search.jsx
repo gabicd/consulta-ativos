@@ -1,23 +1,25 @@
 import React from 'react';
-import { useState, useEffect } from 'react';
-import { Form, Button, Container, Spinner } from 'react-bootstrap';
+import { useState, useEffect, createRef } from 'react';
+import { Form, Button, Container, Spinner, Modal, Stack, } from 'react-bootstrap';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS}  from 'chart.js/auto';
+import { TransitionGroup, CSSTransition } from 'react-transition-group';
 import api from './services/api';
+import logo from './assets/inoa-logo.png';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import './asset-search.css'
 
 export default function SearchAsset () {
-  const [inputFields, setInputFields] = useState([ // estado inicial com um campo vazio e id 1
-      { id: 1, value: '' }
-    ]);
-
+  const [inputFields, setInputFields] = useState([{ id: 1, value: '', ref: createRef(null) }]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [data, setData] = useState([]);
   const [searching, setSearching] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [show, setShow] = useState(false)
+  const [showError, setShowError] = useState(false)
   const [chartData, setChartData] = useState(null)
-
+  
   const handleChange = (id, event) => {
     const newInputField = inputFields.map(field => {
       if (id === field.id) {
@@ -29,36 +31,39 @@ export default function SearchAsset () {
     setInputFields(newInputField);
   };
 
-
   const handleAddField = () => {
-    const newField = { id: Date.now(), value: '' }; 
+    const newField = { id: Date.now(), value: '', ref: createRef(null)}; 
     setInputFields([...inputFields, newField]);
-  };
+  };  
 
-  const handleDeleteField = (id) => {   //função para deletar campo de pesquisa
+  const handleDeleteField = (id) => {  
+    if (inputFields.length == 1){
+      setShow(true) 
+      return
+    } 
     const updatedInputFields = inputFields.filter(field => field.id != id);
     setInputFields(updatedInputFields);
   }
   
   const handleSubmit = async (event) => {
-    event.preventDefault(); // prevenir comportamento padrão do form (reload da página)
-    const assets = (inputFields.map(field => field.value)); // extrair os valores dos campos
-    try {
-      setSearching(true)    
-      const response = await api.post('/submit', { 
-      assetArray: assets,
-      startDate,
-      endDate
-    })
-    //console.log('Response from server:', response.data.data);
-    setData(response.data.data);
-    setLoaded(true);
-    } catch (error) {
-      console.error('Error submitting data to server:', error);
-    } finally {
-      setSearching(false)
-    }
-
+    event.preventDefault(); 
+    const assets = (inputFields.map(field => ((field.value).toUpperCase()).trim())); 
+      try {
+        setSearching(true)    
+        const response = await api.post('/submit', { 
+        assetArray: assets,
+        startDate,
+        endDate
+      })
+      //console.log('Response from server:', response.data.data);
+      setData(response.data.data);
+      setLoaded(true);
+      } catch (e) {
+        console.error('Error submitting data to server:', e);
+        setShowError(true)
+      } finally {
+        setSearching(false)
+      }
     //console.log('Data inicio:', startDate);
     //console.log('Data fim:', endDate);
   };
@@ -71,10 +76,10 @@ useEffect(() => {
       }); 
 
       const datasets = data.map((assetData, index) => ({
-        label: `${assetData.asset} Closing Prices`, 
+        label: `${assetData.asset} Preço de Fechamento`, 
         data: assetData.data.map(entry => entry.closeValue), 
         fill: false,
-        borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`, //garantir cores diferentes para as linhas
+        borderColor: `hsl(${(index * 60) % 360}, 70%, 50%)`, 
       }));
 
       setChartData({
@@ -84,64 +89,129 @@ useEffect(() => {
     }
   }, [data, loaded]);
 
-  return (  // formatação somente para testes iniciais, trabalhar na estilização depois
+  return ( 
     <>
-    <div className="form-container">
-      <h1>Busca de Ativos B3</h1>
-      <Form onSubmit={handleSubmit}>
-        {inputFields.map(field => (
-          <div className="input-group" key={field.id}>
-            <input
-              type="text"
-              value={field.value}
-              onChange={event => handleChange(field.id, event)}
-              placeholder="Símbolo do ativo"
-              required
+       <Container className='p-3 shadow-sm' fluid style={{backgroundColor:'#005984'}}>
+          <Stack direction="horizontal" className='align-items-center' gap={3}>
+              <img 
+                src={logo}
+                alt=""
+                width="48px"
+                height="48px"
             />
-            <Button variant='secondary' id={field.id} onClick={() => handleDeleteField(field.id)}>
-              -
-            </Button>
-          </div>
-        ))}
-          <Button type="button" variant='secondary' className="add-button" onClick={handleAddField}>
-            +
+            <p className='mb-0 h3 text-white tituloSite'>Busca de Ativos B3</p>
+          </Stack>
+       </Container>
+      
+      <Container className='mt-4'>
+        <Form onSubmit={handleSubmit}>
+          <Container>
+            <p className='h5 data'>Insira os ativos que deseja buscar</p>
+            <TransitionGroup>
+              {inputFields.map(field => (
+                <CSSTransition
+                key={field.id}
+                nodeRef={field.ref}
+                timeout={300} 
+                classNames="item"
+                >
+                  <Stack className='mb-2' direction="horizontal" gap={1} key={field.id} ref={field.ref}>
+                        <Form.Control
+                          className='inputField'
+                          type="text"
+                          value={field.value}
+                          onChange={event => handleChange(field.id, event)}
+                          placeholder="Pesquisar..."
+                          required
+                      />
+                      <Button className='deleteButton' id={field.id} onClick={() => handleDeleteField(field.id)}>
+                        -
+                      </Button>
+                  </Stack>
+                </CSSTransition>
+
+              ))}    
+            </TransitionGroup>
+
+            <Button type="button" className="addButton mt-2" onClick={handleAddField}>
+              + Adicionar
+            </Button>        
+          </Container>
+          
+          <Container className='mt-3 mb-3 border-top'>
+            <Container className='mt-3 mb-3'>
+              <Form.Group controlId='formDates'>
+                  <Stack>
+                  <Form.Label className='h5 data'>Data de início da consulta:</Form.Label>
+                    <Form.Control
+                      className='inputField'  
+                      type='date' 
+                      value={startDate} 
+                      onChange={e => setStartDate(e.target.value)} 
+                      required
+                    />
+                  </Stack>
+                  <Stack className='mt-3'>
+                    <Form.Label className='h5 data'>Data de fim da consulta:</Form.Label>
+                      <Form.Control
+                        className='inputField' 
+                        type='date' 
+                        value={endDate} 
+                        onChange={e => setEndDate(e.target.value)} 
+                        required
+                      />
+                  </Stack>
+                    <Button type="submit" className="submitButton mt-3">Pesquisar!</Button>
+              </Form.Group> 
+            </Container>
+          </Container>
+        </Form>
+      </Container>
+
+      <Modal show={show} onHide={() => setShow(false)}>
+        <Modal.Header>
+          <Modal.Title>Ação inválida!</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>Você precisa de pelo menos um ativo para realizar a busca.</Modal.Body>
+        <Modal.Footer>
+          <Button variant="primary" onClick={() => setShow(false)}>
+            Okay
           </Button>
+        </Modal.Footer>      
+      </Modal>
 
-        <Form.Group controlId='formDates'>
-            <Form.Label>Data de início da consulta:</Form.Label>
-              <Form.Control 
-                type='date' 
-                value={startDate} 
-                onChange={e => setStartDate(e.target.value)} 
-              />
-            <Form.Label>Data de fim da consulta:</Form.Label>
-              <Form.Control 
-                type='date' 
-                value={endDate} 
-                onChange={e => setEndDate(e.target.value)} 
-              />
-        </Form.Group>
 
-        <Form.Group controlId='formButtons'>
-          <Button type="submit" variant='primary' className="submit-button">Pesquisar!</Button>
-        </Form.Group>
-      </Form>
+      <Modal show={showError} onHide={() => setShowError(false)}>
+        <Modal.Header>
+          <Modal.Title>Ocorreu um erro.</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>Revise o que foi escrito e tente novamente</Modal.Body>
+        <Modal.Footer>
+          <Button variant="danger" onClick={() => setShowError(false)}>
+            Okay
+          </Button>
+        </Modal.Footer>      
+      </Modal>
         
-        {searching && ( //animação de loading para quando uma busca esta sendo feita
-          <Container className='mt-4 centered-container'> 
+        {searching && ( 
+          <Container className='d-flex justify-content-center align-items-center p-5'> 
             <Spinner animation="border" variant="primary"/>
           </Container>  
         )}
 
-      <Container> {/*dados unificados em um grafico*/ }
+      
         {loaded && chartData && !searching && (
-          <>
-          <h3>{data.map(assetData => assetData.asset).join(', ')}</h3>
-          <Line data={chartData}></Line>
-          </>
+        <>
+        <Container className='border border-secondary-subtle rounded'> 
+            <p className='h3 p-2 pt-3'>{data.map(assetData => assetData.asset).join(', ')}</p>
+            <Line data={chartData}></Line>
+         </Container>
+         <br/>
+        </>
         )}
-    </Container> 
-    </div>
+       
     </>
   );
 }
+
+

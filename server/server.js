@@ -27,7 +27,7 @@ app.post('/submit', async (req, res) => {
         const promises = ativos.map(async ativo => {
             const responseData = []
             const {foundDates, missingDates} =  findMissingDates(jsonData, searchDates, ativo)
-            const newStart = missingDates[0]
+            const newStart = new Date (missingDates[0])
             const newEnd = new Date(missingDates[missingDates.length - 1])
             newEnd.setUTCDate(newEnd.getUTCDate() + 1)    
             //console.log(newStart, newEnd)
@@ -49,16 +49,15 @@ app.post('/submit', async (req, res) => {
 
             responseData.push(...filteredData)
             newData.push({asset: ativo, data: filteredData})
-
             responseData.sort((a, b) => new Date(a.date) - new Date(b.date));
             //console.log(responseData)
         }
+
         return {
             asset: ativo, 
             data: responseData,
         }
-    }
-);
+    });
         const results = await Promise.all(promises);   
         //console.log(newData)
         if (newData && newData.length > 0){
@@ -79,8 +78,8 @@ app.post('/submit', async (req, res) => {
     } catch (error) {
         console.error('Error fetching data from external API:', error);
         res.status(500).json({ error: 'Failed to fetch data from external API' });
-        }
-    });  
+    }
+});  
 
 function getIntervalDates(startDate, endDate) {
     const days = []
@@ -91,15 +90,16 @@ function getIntervalDates(startDate, endDate) {
         if (!(isWeekend(currentDate))) {
             days.push(currentDate.toISOString().split('T')[0]);
         }
+        
         currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
+    
     return days;
-
 }
 
 function findMissingDates(jsonData, searchDates, ativo) {
-        const foundDates = []
-        const missingDates = []
+    const foundDates = []
+    const missingDates = []
     
     if(jsonData[ativo]){        
         const assetData = jsonData[ativo]
@@ -116,10 +116,11 @@ function findMissingDates(jsonData, searchDates, ativo) {
     } else {
         missingDates.push(...searchDates)
     }
-        return {
-            foundDates,
-            missingDates
-        }
+    
+    return {
+        foundDates,
+        missingDates
+    }
 }
 
 function searchCachedData(jsonData, foundDates, ativo, responseData){
